@@ -1,0 +1,1 @@
+module "q-jam.nl/c/c-client/package_manager"
