@@ -14,8 +14,10 @@ func main() {
 
 	var deb package_manager.PackageManager = package_manager.DebPackageManagerImpl{}
 
-	for _, file := range deb.FilesNeeded() {
-		fmt.Printf("File: %s", file)
-	}
+	var packages = deb.Get([]string{"./testdata/status"})
 
+	var pkg package_manager.Package
+	for _, pkg = range packages {
+		fmt.Printf("Package: %s, Version: %s\n",pkg.Name, pkg.Version)
+	}
 }

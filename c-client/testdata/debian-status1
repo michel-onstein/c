@@ -1,0 +1,13 @@
+Package: mokutil
+Status: install ok installed
+Priority: optional
+Section: admin
+Installed-Size: 66
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Architecture: amd64
+Version: 0.3.0+1538710437.fb6250f-0ubuntu2~18.04.1
+Depends: libc6 (>= 2.14), libefivar1 (>= 34), libssl1.1 (>= 1.1.0)
+Description: tools for manipulating machine owner keys
+ This program provides the means to enroll and erase the machine owner
+ keys (MOK) stored in the database of shim.
+Original-Maintainer: Steve Langasek <vorlon@debian.org>
