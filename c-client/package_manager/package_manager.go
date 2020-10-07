@@ -6,6 +6,9 @@ Copyright 2020 Q-Jam B.V.
 package package_manager
 
 type PackageManager interface {
+	// Short name of the package manager
+	Id() string
+
 	// Files needed by the manager
 	FilesNeeded() []string
 
@@ -14,6 +17,7 @@ type PackageManager interface {
 }
 
 type Package struct {
-	Name string
+	Name    string
 	Version string
+	Manager string
 }

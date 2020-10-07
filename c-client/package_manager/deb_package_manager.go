@@ -15,6 +15,11 @@ import (
 
 type DebPackageManagerImpl struct{}
 
+// Short name of the package manager
+func (DebPackageManagerImpl) Id() string {
+	return "deb"
+}
+
 // Files needed by the manager
 func (DebPackageManagerImpl) FilesNeeded() []string {
 	return []string{"/var/lib/dpkg/status"}
@@ -29,7 +34,6 @@ func (DebPackageManagerImpl) Get(files []string) []Package {
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
-	var line string
 
 	var packages []Package
 
@@ -38,7 +42,7 @@ func (DebPackageManagerImpl) Get(files []string) []Package {
 	var installed bool
 
 	for {
-		line, err = reader.ReadString('\n')
+		line, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
 			break
 		}
@@ -56,7 +60,7 @@ func (DebPackageManagerImpl) Get(files []string) []Package {
 		} else if strings.HasPrefix(line, "Status: ") {
 			var split []string = strings.SplitN(line, " ", 2)
 
-			var status = split[1]
+			status := split[1]
 
 			// TODO Check if this is enough
 			if status == "install ok installed" {
@@ -70,6 +74,7 @@ func (DebPackageManagerImpl) Get(files []string) []Package {
 				Package{
 					Name:    name,
 					Version: version,
+					Manager: "deb",
 				},
 			)
 
