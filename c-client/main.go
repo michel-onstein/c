@@ -6,140 +6,73 @@ Copyright 2020 Q-Jam B.V.
 package main
 
 import (
-	"archive/tar"
-	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
-	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
+
 	"q-jam.nl/c/c-client/package_manager"
 )
 
+var Log = logrus.New()
+
+type Report struct {
+	Hostname string                    `json:"h"`
+	Packages []package_manager.Package `json:"p"`
+	Docker   []DockerContainer         `json:"d"`
+}
+
 func main() {
+	Log.Level = logrus.DebugLevel
+
 	var packageManagers = []package_manager.PackageManager{
 		package_manager.ApkPackageManagerImpl{},
 		package_manager.DebPackageManagerImpl{},
 	}
 
-	cli, err := client.NewClient("unix:///var/run/docker.sock", "v1.22", nil, nil)
+	// Figure out system wide packages
+	reportPackages, err := getPackages(packageManagers)
 	if err != nil {
 		panic(err)
 	}
 
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
+	// Figure out the packages in the docker containers
+	var reportDockerContainers []DockerContainer
+	dockerPackages, err := GetDockerPackages(packageManagers)
 	if err != nil {
-		panic(err)
-	}
+		Log.Debugf("getting docker container packages failed, likely simply no docker: %v", err)
+	} else {
 
-	// Iterate all containers
-	for _, container := range containers {
-		fmt.Printf("%s %s\n", container.ID[:10], container.Image)
-
-		for _, packageManager := range packageManagers {
-			files := packageManager.FilesNeeded()
-
-			// Figure out if all files required by the package manager exist
-			allFilesPresent := true
-			fileMap := make(map[string]string)
-			for _, file := range files {
-				temp := TempFileName("df-")
-
-				err = copyFileFromContainer(cli, container, file, temp)
-				if err != nil {
-					allFilesPresent = false
-					break
-				}
-
-				fileMap[file] = temp
-			}
-
-			if !allFilesPresent {
-				continue
-			}
-
-			fmt.Printf("Found package manager: %s\n", packageManager.Id())
-
-			// Construct a slice with the temporary files in the right order
-			var tempFiles []string
-			for _, file := range files {
-				tempFiles = append(tempFiles, fileMap[file])
-			}
-
-			// Determine the packages
-			packages := packageManager.Get(tempFiles)
-
-			for _, pkg := range packages {
-				fmt.Printf("\tPackage: %s, Version: %s (%s)\n", pkg.Name, pkg.Version, pkg.Manager)
-			}
-
-			// Delete temporary files
-			for _, temp := range fileMap {
-				err = os.Remove(temp)
-				if err != nil {
-					panic(err)
-				}
-			}
+		for _, dockerContainer := range dockerPackages {
+			reportDockerContainers = append(reportDockerContainers, dockerContainer)
 		}
 	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		panic(err)
+	}
+
+	// The final report to send
+	report := Report{
+		Hostname: hostname,
+		Packages: reportPackages,
+		Docker:   reportDockerContainers,
+	}
+
+	reportAsJson, err := json.Marshal(report)
+	fmt.Println(string(reportAsJson))
 }
 
-// Copy a single file from a docker container
-func copyFileFromContainer(client *client.Client, container types.Container, src string, dst string) error {
-	reader, _, err := client.CopyFromContainer(context.Background(), container.ID, src)
+// Get system package for provided package managers
+func getPackages(packageManagers []package_manager.PackageManager) ([]package_manager.Package, error) {
+	var allPackages []package_manager.Package
 
-	if err != nil {
-		return fmt.Errorf("could not find the file %s in container %s", src, container.ID)
-	}
-
-	defer reader.Close()
-
-	writer, err := os.Create(dst)
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer writer.Close()
-
-	tarReader := tar.NewReader(reader)
-	_, err = tarReader.Next()
-
-	if err != nil {
-		panic(err)
-	}
-
-	buffer := make([]byte, 16384)
-	for {
-		read, readErr := tarReader.Read(buffer)
-
-		_, writeErr := writer.Write(buffer[0:read])
-		if writeErr != nil {
-			panic(writeErr)
-		}
-
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			panic(err)
-		}
-	}
-	return nil
-}
-
-func main_package() {
-	var packageManagers = []package_manager.PackageManager{
-		package_manager.ApkPackageManagerImpl{},
-		package_manager.DebPackageManagerImpl{},
-	}
-
-	var packageManager package_manager.PackageManager
-	for _, packageManager = range packageManagers {
+	for _, packageManager := range packageManagers {
 		var files = packageManager.FilesNeeded()
 
 		// Figure out if all files required by the package manager exist
@@ -156,22 +89,21 @@ func main_package() {
 		}
 
 		if allFilesPresent {
-			fmt.Printf("Found package manager: %s\n", packageManager.Id())
+			Log.Debugf("found package manager: %s\n", packageManager.Id())
 
 			packages := packageManager.Get(files)
 
-			for _, pkg := range packages {
-				fmt.Printf("Package: %s, Version: %s (%s)\n", pkg.Name, pkg.Version, pkg.Manager)
+			allPackages = append(allPackages, packages...)
+
+			if Log.IsLevelEnabled(logrus.TraceLevel) {
+				for _, pkg := range packages {
+					Log.Tracef("Package: %s, Version: %s (%s)\n", pkg.Name, pkg.Version, pkg.Manager)
+				}
 			}
 		}
 	}
 
-	//var packages = apk.Get([]string{"./testdata/apk-installed"})
-	//
-	//var pkg package_manager.Package
-	//for _, pkg = range packages {
-	//	fmt.Printf("Package: %s, Version: %s (%s)\n", pkg.Name, pkg.Version, pkg.Manager)
-	//}
+	return allPackages, nil
 }
 
 // Generate a random temporary filename

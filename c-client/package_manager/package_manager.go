@@ -17,7 +17,7 @@ type PackageManager interface {
 }
 
 type Package struct {
-	Name    string
-	Version string
-	Manager string
+	Name    string `json:"n"`
+	Version string `json:"v"`
+	Manager string `json:"m"`
 }
