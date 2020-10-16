@@ -1,6 +1,6 @@
 module q-jam.nl/c/c-client
 
-go 1.14
+go 1.15
 
 require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
