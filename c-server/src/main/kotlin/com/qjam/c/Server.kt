@@ -6,6 +6,7 @@ package com.qjam.c
 import com.google.common.flogger.FluentLogger
 import com.qjam.c.api.v1.ApiV1
 import com.qjam.c.config.AllConfiguration
+import com.qjam.c.config.AuthenticationConfiguration
 import com.qjam.c.config.DatabaseConnectionConfiguration
 import com.qjam.c.db.*
 import com.qjam.c.impl.DevelopmentConfigurationImpl
@@ -26,6 +27,7 @@ import java.util.*
 
 val configurationKoinModule = module {
     single { DevelopmentConfigurationImpl() as AllConfiguration }
+    single { get<AllConfiguration>() as AuthenticationConfiguration }
     single { get<AllConfiguration>() as DatabaseConnectionConfiguration }
 }
 
@@ -132,7 +134,7 @@ fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfig
         val apiKey1 = ApiKey.new {
             apiKey = "howdy"
             enterprise = enterprise1
-            expires = Date().time+(1000*60*60*24)
+            expires = Date().time + (1000 * 60 * 60 * 24)
         }
 
         val realm1 = EnterpriseRealm.new {
@@ -147,9 +149,20 @@ fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfig
             enterprise = enterprise1
         }
 
+        val user2 = User.new {
+            name = "John Doe"
+            email = "john@onstein.net"
+            enterprise = enterprise1
+        }
+
         val user1Password = UserPassword.new {
             password = "testing123"
             user = user1
+        }
+
+        val user2Password = UserPassword.new {
+            password = "testing123"
+            user = user2
         }
     }
 

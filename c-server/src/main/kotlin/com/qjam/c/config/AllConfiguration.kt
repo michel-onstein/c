@@ -3,5 +3,5 @@
  */
 package com.qjam.c.config
 
-interface AllConfiguration : DatabaseConnectionConfiguration {
+interface AllConfiguration : AuthenticationConfiguration, DatabaseConnectionConfiguration {
 }
