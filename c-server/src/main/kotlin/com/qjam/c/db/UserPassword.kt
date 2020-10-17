@@ -20,7 +20,8 @@ object UserPasswords : IntIdTable() {
 class UserPassword(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<UserPassword>(UserPasswords) {
         fun hashPassword(seed: String, password: String): String {
-            return BaseEncoding.base64Url().encode(Hashing.sha256().hashString(seed + password + seed, Charsets.UTF_8).asBytes())
+            return BaseEncoding.base64Url()
+                .encode(Hashing.sha256().hashString(seed + password + seed, Charsets.UTF_8).asBytes())
                 .toString()
         }
     }
@@ -30,7 +31,7 @@ class UserPassword(id: EntityID<Int>) : IntEntity(id) {
     var seed by UserPasswords.seed
 
     var password: String
-        get() = throw RuntimeException("Cannot get a password")
+        get() = throw RuntimeException("Cannot determine password from hash")
         set(value) {
             // Build random seed
             val charPool: List<Char> = ('a'..'z') + ('A'..'Z') + ('0'..'9')

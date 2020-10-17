@@ -22,6 +22,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.context.KoinContextHandler
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
+import java.util.*
 
 val configurationKoinModule = module {
     single { DevelopmentConfigurationImpl() as AllConfiguration }
@@ -66,7 +67,13 @@ fun main() {
                     if (apiKeys.empty()) {
                         null
                     } else {
-                        apiKeys.first().enterprise.model()
+                        val apiKey = apiKeys.first()
+
+                        if (apiKey.expires < Date().time) {
+                            null
+                        } else {
+                            apiKey.enterprise.model()
+                        }
                     }
                 }
 
@@ -79,7 +86,6 @@ fun main() {
     }
 
     server.start(true)
-
 }
 
 fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfiguration, fillWithTestData: Boolean) {
@@ -107,6 +113,7 @@ fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfig
         Reports,
         Users,
         UserPasswords,
+        UserTokens,
     )
 
     transaction {
@@ -125,6 +132,7 @@ fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfig
         val apiKey1 = ApiKey.new {
             apiKey = "howdy"
             enterprise = enterprise1
+            expires = Date().time+(1000*60*60*24)
         }
 
         val realm1 = EnterpriseRealm.new {

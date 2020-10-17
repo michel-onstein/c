@@ -5,6 +5,7 @@ package com.qjam.c.api.v1.report
 
 import com.google.common.flogger.FluentLogger
 import com.qjam.c.EnterpriseAttributeKey
+import com.qjam.c.api.v1.ensureJsonContent
 import com.qjam.c.api.v1.report.model.Report
 import com.qjam.c.db.Enterprise
 import io.ktor.application.*
@@ -49,7 +50,7 @@ class ApiV1Report {
                     val reportAsJson = call.receiveText()
                     println(reportAsJson)
 
-                    val report = Json.decodeFromString<Report>(Report.serializer(), reportAsJson)
+                    val report = Json.decodeFromString(Report.serializer(), reportAsJson)
 
                     // Store report
                     transaction {
@@ -70,8 +71,4 @@ class ApiV1Report {
 }
 
 
-fun ensureJsonContent(call: ApplicationCall): Boolean {
-    val key = call.request.header("Content-Type") ?: return false
 
-    return key.toLowerCase() == "application/json"
-}
