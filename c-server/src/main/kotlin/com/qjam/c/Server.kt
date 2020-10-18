@@ -71,7 +71,7 @@ fun main() {
                     } else {
                         val apiKey = apiKeys.first()
 
-                        if (apiKey.expires < Date().time) {
+                        if ((apiKey.expires != 0L) && (apiKey.expires < Date().time)) {
                             null
                         } else {
                             apiKey.enterprise.model()
@@ -110,9 +110,12 @@ fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfig
 
     val allTables = arrayOf(
         ApiKeys,
+        Containers,
+        DynamicConfigurations,
         Enterprises,
         EnterpriseRealms,
-        Reports,
+        Hosts,
+        Packages,
         Users,
         UserPasswords,
         UserTokens,

@@ -9,7 +9,7 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.IntIdTable
 
 object ApiKeys : IntIdTable() {
-    val enterprise = reference("enterprise", Enterprises)
+    val enterprise = reference("enterprise", Enterprises).index()
     val apiKey = varchar("key", 256).uniqueIndex()
     val expires = long("expires")
 }

@@ -12,7 +12,7 @@ import org.jetbrains.exposed.dao.EntityID
 object Users : IdentifierIdTable<com.qjam.c.model.User.Tag>() {
     override fun generateIdentifier(): Identifier<com.qjam.c.model.User.Tag> = Identifier.random()
 
-    val enterprise = Users.reference("enterprise", Enterprises)
+    val enterprise = Users.reference("enterprise", Enterprises).index()
     val name = varchar("name", 256)
     val email = varchar("email", 256)
 }
