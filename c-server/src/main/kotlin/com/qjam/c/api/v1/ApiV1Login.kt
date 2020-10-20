@@ -75,18 +75,14 @@ class ApiV1Login {
                                 parts[1],
                                 call.request.local.remoteHost
                             )
-                            call.respondText(
-                                Json.encodeToString(LoginInfoResponse.serializer(), LoginInfoResponse('p')),
-                                ContentType.Application.Json,
-                                HttpStatusCode.OK
+                            call.respondJson(
+                                Json.encodeToString(LoginInfoResponse.serializer(), LoginInfoResponse('p'))
                             )
                         }
                         'p' -> {
                             // plain login
-                            call.respondText(
-                                Json.encodeToString(LoginInfoResponse.serializer(), LoginInfoResponse('p')),
-                                ContentType.Application.Json,
-                                HttpStatusCode.OK
+                            call.respondJson(
+                                Json.encodeToString(LoginInfoResponse.serializer(), LoginInfoResponse('p'))
                             )
                         }
                         else -> throw NotImplementedError()
@@ -176,15 +172,13 @@ class ApiV1Login {
                     }
 
                     // Respond back to the client
-                    call.respondText(
+                    call.respondJson(
                         Json.encodeToString(
                             LoginResponse.serializer(), LoginResponse(
                                 token,
                                 user,
                             )
-                        ),
-                        ContentType.Application.Json,
-                        HttpStatusCode.OK
+                        )
                     )
                 }
             }

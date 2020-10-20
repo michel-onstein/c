@@ -8,7 +8,10 @@ import com.qjam.c.api.v1.ApiV1
 import com.qjam.c.config.AllConfiguration
 import com.qjam.c.config.AuthenticationConfiguration
 import com.qjam.c.config.DatabaseConnectionConfiguration
-import com.qjam.c.db.*
+import com.qjam.c.db.ApiKey
+import com.qjam.c.db.ApiKeys
+import com.qjam.c.db.UserToken
+import com.qjam.c.db.UserTokens
 import com.qjam.c.impl.DevelopmentConfigurationImpl
 import io.ktor.application.*
 import io.ktor.features.*
@@ -17,8 +20,6 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.util.*
 import io.ktor.websocket.*
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.context.KoinContextHandler
 import org.koin.core.context.startKoin
@@ -34,6 +35,7 @@ val configurationKoinModule = module {
 val logger = FluentLogger.forEnclosingClass();
 
 val EnterpriseAttributeKey = AttributeKey<com.qjam.c.model.Enterprise>("Enterprise")
+val UserAttributeKey = AttributeKey<com.qjam.c.model.User>("User")
 
 fun main() {
     System.setProperty(
@@ -52,7 +54,7 @@ fun main() {
     val koin = KoinContextHandler.get()
 
     // Setup the database
-    initializeDatabase(koin.get(), true)
+    DatabaseHelper.initializeDatabase(koin.get(), true)
 
     // Setup ktor
     val server = embeddedServer(Netty, 1080) {
@@ -61,28 +63,8 @@ fun main() {
 
         // Determine the active enterprise based on api-key
         intercept(ApplicationCallPipeline.Features) {
-            val key = call.request.header("X-API-KEY")
-            if (key != null) {
-                val enterprise = transaction {
-                    val apiKeys = ApiKey.find { ApiKeys.apiKey eq key }.limit(1)
-
-                    if (apiKeys.empty()) {
-                        null
-                    } else {
-                        val apiKey = apiKeys.first()
-
-                        if ((apiKey.expires != 0L) && (apiKey.expires < Date().time)) {
-                            null
-                        } else {
-                            apiKey.enterprise.model()
-                        }
-                    }
-                }
-
-                if (enterprise != null) {
-                    call.attributes.put(EnterpriseAttributeKey, enterprise)
-                }
-            }
+            authorizeWithApiKey(call)
+            authorizeWithToken(call)
         }
         ApiV1.install(this)
     }
@@ -90,85 +72,58 @@ fun main() {
     server.start(true)
 }
 
-fun initializeDatabase(databaseConnectionConfiguration: DatabaseConnectionConfiguration, fillWithTestData: Boolean) {
-    with(databaseConnectionConfiguration) {
-        if (this.databaseConnectionUser != null) {
-            logger.atInfo()
-                .log("Connecting to database with: path(${this.databaseConnectionUrl}), driver(${this.databaseConnectionDriver}), user(${this.databaseConnectionUser!!}), password(${this.databaseConnectionPassword!!}).")
-            Database.connect(
-                this.databaseConnectionUrl,
-                this.databaseConnectionDriver,
-                this.databaseConnectionUser!!,
-                this.databaseConnectionPassword!!
-            )
+private fun authorizeWithApiKey(call: ApplicationCall) {
+    val key = call.request.header("X-API-KEY") ?: return
+
+    val enterprise = transaction {
+        val apiKeys = ApiKey.find { ApiKeys.apiKey eq key }.limit(1)
+
+        if (apiKeys.empty()) {
+            null
         } else {
-            logger.atInfo()
-                .log("Connecting to database with: path(${this.databaseConnectionUrl}), driver(${this.databaseConnectionDriver}).")
-            Database.connect(this.databaseConnectionUrl, driver = this.databaseConnectionDriver)
+            val apiKey = apiKeys.first()
+
+            if ((apiKey.expires != 0L) && (apiKey.expires < Date().time)) {
+                null
+            } else {
+                apiKey.enterprise.model()
+            }
         }
     }
 
-    val allTables = arrayOf(
-        ApiKeys,
-        Containers,
-        DynamicConfigurations,
-        Enterprises,
-        EnterpriseRealms,
-        Hosts,
-        Packages,
-        Users,
-        UserPasswords,
-        UserTokens,
-    )
-
-    transaction {
-        SchemaUtils.create(*allTables)
+    if (enterprise != null) {
+        call.attributes.put(EnterpriseAttributeKey, enterprise)
     }
-
-    if (!fillWithTestData) {
-        return
-    }
-
-    transaction {
-        val enterprise1 = Enterprise.new {
-            name = "Enterprise 1"
-        }
-
-        val apiKey1 = ApiKey.new {
-            apiKey = "howdy"
-            enterprise = enterprise1
-            expires = Date().time + (1000 * 60 * 60 * 24)
-        }
-
-        val realm1 = EnterpriseRealm.new {
-            realm = "onstein.net"
-            type = 'p'
-            enterprise = enterprise1
-        }
-
-        val user1 = User.new {
-            name = "Michel Onstein"
-            email = "michel@onstein.net"
-            enterprise = enterprise1
-        }
-
-        val user2 = User.new {
-            name = "John Doe"
-            email = "john@onstein.net"
-            enterprise = enterprise1
-        }
-
-        val user1Password = UserPassword.new {
-            password = "testing123"
-            user = user1
-        }
-
-        val user2Password = UserPassword.new {
-            password = "testing123"
-            user = user2
-        }
-    }
-
 
 }
 
+private fun authorizeWithToken(call: ApplicationCall) {
+    val bearer = call.request.header("Authorization") ?: return
+
+    val parts = bearer.split(" ")
+    if (parts.size != 2) {
+        logger.atFiner().log("Trying to authorize with malformed bearer: %s", bearer)
+        return
+    }
+    val token = parts[1]
+    transaction {
+        val userTokens = UserToken.find { UserTokens.token eq token }
+        if (userTokens.empty()) {
+            logger.atFiner().log("Trying to authorize with unknown token: %s", bearer)
+        } else {
+            val userToken = userTokens.first()
+            if (userToken.expires < Date().time) {
+                userToken.delete()
+                return@transaction
+            }
+
+            val user = userToken.user
+            val userModel = user.model()
+            val enterpriseModel = user.enterprise.model()
+
+            call.attributes.put(UserAttributeKey, userModel)
+            call.attributes.put(EnterpriseAttributeKey, enterpriseModel)
+
+        }
+    }
+}
