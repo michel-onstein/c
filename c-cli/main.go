@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"strings"
 )
 
 var CLI struct {
@@ -23,6 +24,22 @@ var CLI struct {
 
 	Logout struct {
 	} `cmd help:"Logout."`
+
+	Config struct {
+		Ls struct {
+		} `cmd help:"list all entries."`
+		Rm struct {
+			Key string `arg help:"the key"`
+		} `cmd help:"remove an entry."`
+		Get struct {
+			Key string `arg help:"the key"`
+		} `cmd help:"get an entry."`
+		Set struct {
+			Key   string `arg help:"the key"`
+			Value string `arg help:"the value"`
+		} `cmd help:"set an entry."`
+		Global bool `short:"g" help:"use the global configuration"`
+	} `cmd help:"Configuration."`
 
 	Rm struct {
 		Force     bool `help:"Force removal."`
@@ -69,7 +86,7 @@ func main() {
 	switch ctx.Command() {
 	case "login":
 		// TODO Allow Console input
-		token, err := Login(CLI.Login.Username, CLI.Login.Password)
+		token, err := LoginCmd(CLI.Login.Username, CLI.Login.Password)
 		if err != nil {
 			fmt.Printf("login: %s\n", err)
 			os.Exit(-1)
@@ -85,7 +102,7 @@ func main() {
 		}
 		return
 	case "logout":
-		Logout()
+		LogoutCmd()
 		return
 	}
 
@@ -93,6 +110,40 @@ func main() {
 	if ConfigurationInstance.Username == "" {
 		fmt.Println("Please login first.")
 		return
+	}
+
+	// Check output types
+	outputType := strings.ToLower(CLI.OutputType)
+	if outputType == "" {
+		outputType = "text"
+	} else {
+		if (outputType != "text") && (outputType != "json") {
+			fmt.Printf("unsupported output type: %s\n", outputType)
+			os.Exit(-3)
+		}
+	}
+
+	switch ctx.Command() {
+	case "config ls":
+		err = ConfigLsCmd(CLI.Config.Global, outputType)
+		break
+	case "config get <key>":
+		err = ConfigGetCmd(CLI.Config.Get.Key)
+		break
+	case "config set <key> <value>":
+		err = ConfigSetCmd(CLI.Config.Set.Key, CLI.Config.Set.Value)
+		break
+	case "config rm <key>":
+		err = ConfigRmCmd(CLI.Config.Rm.Key)
+		break
+	default:
+		fmt.Printf("unimplemented command: %s\n", ctx.Command())
+		os.Exit(-3)
+	}
+
+	if err != nil {
+		fmt.Printf("error executing \"%s\": %s\n", ctx.Command(), err)
+		os.Exit(-1)
 	}
 }
 

@@ -64,7 +64,7 @@ fun main() {
         // Determine the active enterprise based on api-key
         intercept(ApplicationCallPipeline.Features) {
             authorizeWithApiKey(call)
-            authorizeWithToken(call)
+            authorizeWithToken(call, koin.get())
         }
         ApiV1.install(this)
     }
@@ -97,7 +97,7 @@ private fun authorizeWithApiKey(call: ApplicationCall) {
 
 }
 
-private fun authorizeWithToken(call: ApplicationCall) {
+private fun authorizeWithToken(call: ApplicationCall, authenticationConfiguration: AuthenticationConfiguration) {
     val bearer = call.request.header("Authorization") ?: return
 
     val parts = bearer.split(" ")
@@ -116,6 +116,7 @@ private fun authorizeWithToken(call: ApplicationCall) {
                 userToken.delete()
                 return@transaction
             }
+            userToken.expires = Date().time + (1000L * authenticationConfiguration.authenticationUserTokenTTL)
 
             val user = userToken.user
             val userModel = user.model()
@@ -123,7 +124,6 @@ private fun authorizeWithToken(call: ApplicationCall) {
 
             call.attributes.put(UserAttributeKey, userModel)
             call.attributes.put(EnterpriseAttributeKey, enterpriseModel)
-
         }
     }
 }

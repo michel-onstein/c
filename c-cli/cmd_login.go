@@ -15,7 +15,7 @@ import (
 	"os/user"
 )
 
-func Login(username string, password string) (string, error) {
+func LoginCmd(username string, password string) (string, error) {
 	// Figure out how to login to begin with
 	loginInfoRequestAsJson, err := json.Marshal(LoginInfoRequest{
 		Username: username,
@@ -97,7 +97,7 @@ func Login(username string, password string) (string, error) {
 }
 
 // Logout by simply removing the configuration file, may not be the best later
-func Logout() {
+func LogoutCmd() {
 	currentUser, err := user.Current()
 	if err != nil {
 		panic(err)
