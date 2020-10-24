@@ -4,10 +4,8 @@
 package com.qjam.c.api.v1
 
 import com.google.common.flogger.FluentLogger
-import com.qjam.c.UserAttributeKey
-import com.qjam.c.db.DynamicUserConfiguration
-import com.qjam.c.db.DynamicUserConfigurations
-import com.qjam.c.db.User
+import com.qjam.c.EnterpriseAttributeKey
+import com.qjam.c.db.*
 import io.ktor.application.*
 import io.ktor.http.*
 import io.ktor.request.*
@@ -22,7 +20,7 @@ import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.koin.core.context.KoinContextHandler
 
-class ApiV1Configuration {
+class ApiV1GlobalConfiguration {
     companion object {
         val koin = KoinContextHandler.get()
         val logger = FluentLogger.forEnclosingClass()
@@ -32,20 +30,20 @@ class ApiV1Configuration {
                 /**
                  * Get the user configuration
                  */
-                get("/api/v1/configuration") {
-                    val user = call.attributes.getOrNull(UserAttributeKey)
-                    if (user == null) {
+                get("/api/v1/global-configuration") {
+                    val enterprise = call.attributes.getOrNull(EnterpriseAttributeKey)
+                    if (enterprise == null) {
                         call.respondText("Unauthorized", status = HttpStatusCode.Unauthorized)
                         return@get
                     }
 
                     // TODO Reimplement, just output as json map
-                    val entries = mutableListOf<ConfigurationEntry>()
+                    val entries = mutableListOf<GlobalConfigurationEntry>()
                     transaction {
                         val userConfigurations =
-                            DynamicUserConfiguration.find(DynamicUserConfigurations.user eq user.id)
+                            DynamicGlobalConfiguration.find(DynamicGlobalConfigurations.enterprise eq enterprise.id)
                         userConfigurations.forEach {
-                            entries.add(ConfigurationEntry(it.key, it.value))
+                            entries.add(GlobalConfigurationEntry(it.key, it.value))
                         }
                     }
 
@@ -55,7 +53,7 @@ class ApiV1Configuration {
                 /*
                  * Set a user configuration entry
                  */
-                put("/api/v1/configuration") {
+                put("/api/v1/global-configuration") {
                     if (!ensureJsonContent(call)) {
                         ApiV1Login.logger.atWarning()
                             .log(
@@ -66,14 +64,14 @@ class ApiV1Configuration {
                         return@put
                     }
 
-                    val user = call.attributes.getOrNull(UserAttributeKey)
-                    if (user == null) {
+                    val enterprise = call.attributes.getOrNull(EnterpriseAttributeKey)
+                    if (enterprise == null) {
                         call.respondText("Unauthorized", status = HttpStatusCode.Unauthorized)
                         return@put
                     }
 
                     val request = try {
-                        Json.decodeFromString<ConfigurationEntry>(call.receiveText())
+                        Json.decodeFromString<GlobalConfigurationEntry>(call.receiveText())
                     } catch (t: Throwable) {
                         call.respondText("Bad Request", status = HttpStatusCode.BadRequest)
                         return@put
@@ -91,14 +89,14 @@ class ApiV1Configuration {
                     transaction {
                         // TODO If only we had upsert
                         val entries =
-                            DynamicUserConfiguration.find { (DynamicUserConfigurations.key eq key) and (DynamicUserConfigurations.user eq user.id) }
+                            DynamicGlobalConfiguration.find { (DynamicGlobalConfigurations.key eq key) and (DynamicGlobalConfigurations.enterprise eq enterprise.id) }
                         if (!entries.empty()) {
                             val entry = entries.first()
                             entry.value = value
                         } else {
-                            val dbUser = User[user.id]
-                            val entry = DynamicUserConfiguration.new {
-                                this.user = dbUser
+                            val dbEnterprise = Enterprise[enterprise.id]
+                            val entry = DynamicGlobalConfiguration.new {
+                                this.enterprise = dbEnterprise
                                 this.key = key
                                 this.value = value
                             }
@@ -111,9 +109,9 @@ class ApiV1Configuration {
                 /*
                  * Delete a user configuration entry
                  */
-                delete("/api/v1/configuration/{key}") {
-                    val user = call.attributes.getOrNull(UserAttributeKey)
-                    if (user == null) {
+                delete("/api/v1/global-configuration/{key}") {
+                    val enterprise = call.attributes.getOrNull(EnterpriseAttributeKey)
+                    if (enterprise == null) {
                         call.respondText("Unauthorized", status = HttpStatusCode.Unauthorized)
                         return@delete
                     }
@@ -126,7 +124,7 @@ class ApiV1Configuration {
 
                     val found = transaction {
                         val entries =
-                            DynamicUserConfiguration.find { (DynamicUserConfigurations.key eq key) and (DynamicUserConfigurations.user eq user.id) }
+                            DynamicGlobalConfiguration.find { (DynamicGlobalConfigurations.key eq key) and (DynamicGlobalConfigurations.enterprise eq enterprise.id) }
                         if (entries.empty()) {
                             false
                         } else {
@@ -146,9 +144,9 @@ class ApiV1Configuration {
                 /*
                  * Get a user configuration entry
                  */
-                get("/api/v1/configuration/{key}") {
-                    val user = call.attributes.getOrNull(UserAttributeKey)
-                    if (user == null) {
+                get("/api/v1/global-configuration/{key}") {
+                    val enterprise = call.attributes.getOrNull(EnterpriseAttributeKey)
+                    if (enterprise == null) {
                         call.respondText("Unauthorized", status = HttpStatusCode.Unauthorized)
                         return@get
                     }
@@ -161,7 +159,7 @@ class ApiV1Configuration {
 
                     val value = transaction {
                         val entries =
-                            DynamicUserConfiguration.find { (DynamicUserConfigurations.key eq key) and (DynamicUserConfigurations.user eq user.id) }
+                            DynamicGlobalConfiguration.find { (DynamicGlobalConfigurations.key eq key) and (DynamicGlobalConfigurations.enterprise eq enterprise.id) }
                         if (entries.empty()) {
                             null
                         } else {
@@ -195,4 +193,4 @@ private fun sanitizeKey(key: String?): String? {
 }
 
 @Serializable
-data class ConfigurationEntry(val key: String, val value: String)
+data class GlobalConfigurationEntry(val key: String, val value: String)

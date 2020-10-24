@@ -128,13 +128,13 @@ func main() {
 		err = ConfigLsCmd(CLI.Config.Global, outputType)
 		break
 	case "config get <key>":
-		err = ConfigGetCmd(CLI.Config.Get.Key)
+		err = ConfigGetCmd(CLI.Config.Global, CLI.Config.Get.Key, outputType)
 		break
 	case "config set <key> <value>":
-		err = ConfigSetCmd(CLI.Config.Set.Key, CLI.Config.Set.Value)
+		err = ConfigSetCmd(CLI.Config.Global, CLI.Config.Set.Key, CLI.Config.Set.Value)
 		break
 	case "config rm <key>":
-		err = ConfigRmCmd(CLI.Config.Rm.Key)
+		err = ConfigRmCmd(CLI.Config.Global, CLI.Config.Rm.Key)
 		break
 	default:
 		fmt.Printf("unimplemented command: %s\n", ctx.Command())

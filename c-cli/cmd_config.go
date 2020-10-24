@@ -15,8 +15,17 @@ import (
 )
 
 func ConfigLsCmd(global bool, outputType string) error {
+	endpoint := ConfigurationInstance.ApiEndpoint
+	if global {
+		endpoint += "/api/v1/global-configuration"
+	} else {
+		endpoint += "/api/v1/configuration"
+	}
 
-	request, err := http.NewRequest("GET", ConfigurationInstance.ApiEndpoint+"/api/v1/configuration", nil)
+	request, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		panic(err)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+ConfigurationInstance.Token)
 
@@ -43,7 +52,7 @@ func ConfigLsCmd(global bool, outputType string) error {
 		return fmt.Errorf("error unmarshalling configuration response: %s", err)
 	}
 
-	if CLI.OutputType == "text" {
+	if outputType == "text" {
 		return fmt.Errorf("output type 'text' not implemented")
 	} else {
 		// Make a standard map out of the unmarshalled json
@@ -65,7 +74,7 @@ func ConfigLsCmd(global bool, outputType string) error {
 	return nil
 }
 
-func ConfigSetCmd(key string, value string) error {
+func ConfigSetCmd(global bool, key string, value string) error {
 	entry := ConfigurationEntry{
 		Key:   key,
 		Value: value,
@@ -75,8 +84,17 @@ func ConfigSetCmd(key string, value string) error {
 		panic(err)
 	}
 
-	request, err := http.NewRequest("PUT", ConfigurationInstance.ApiEndpoint+"/api/v1/configuration",
-		bytes.NewBuffer(marshalled))
+	endpoint := ConfigurationInstance.ApiEndpoint
+	if global {
+		endpoint += "/api/v1/global-configuration"
+	} else {
+		endpoint += "/api/v1/configuration"
+	}
+
+	request, err := http.NewRequest("PUT", endpoint, bytes.NewBuffer(marshalled))
+	if err != nil {
+		panic(err)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+ConfigurationInstance.Token)
 
@@ -95,9 +113,19 @@ func ConfigSetCmd(key string, value string) error {
 	return nil
 }
 
-func ConfigRmCmd(key string) error {
-	request, err := http.NewRequest("DELETE",
-		ConfigurationInstance.ApiEndpoint+"/api/v1/configuration/"+url.QueryEscape(key), nil)
+func ConfigRmCmd(global bool, key string) error {
+	endpoint := ConfigurationInstance.ApiEndpoint
+	if global {
+		endpoint += "/api/v1/global-configuration/"
+	} else {
+		endpoint += "/api/v1/configuration/"
+	}
+	endpoint += url.QueryEscape(key)
+
+	request, err := http.NewRequest("DELETE", endpoint, nil)
+	if err != nil {
+		panic(err)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+ConfigurationInstance.Token)
 
@@ -117,9 +145,19 @@ func ConfigRmCmd(key string) error {
 	}
 }
 
-func ConfigGetCmd(key string) error {
-	request, err := http.NewRequest("GET",
-		ConfigurationInstance.ApiEndpoint+"/api/v1/configuration/"+url.QueryEscape(key), nil)
+func ConfigGetCmd(global bool, key string, outputType string) error {
+	endpoint := ConfigurationInstance.ApiEndpoint
+	if global {
+		endpoint += "/api/v1/global-configuration/"
+	} else {
+		endpoint += "/api/v1/configuration/"
+	}
+	endpoint += url.QueryEscape(key)
+
+	request, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		panic(err)
+	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer "+ConfigurationInstance.Token)
 
@@ -140,7 +178,11 @@ func ConfigGetCmd(key string) error {
 		return fmt.Errorf("error reading configuration response: %s", err)
 	}
 
-	fmt.Println(string(body))
+	if outputType == "text" {
+		return fmt.Errorf("output type 'text' not implemented")
+	} else {
+		fmt.Println(string(body))
+	}
 
 	return nil
 }

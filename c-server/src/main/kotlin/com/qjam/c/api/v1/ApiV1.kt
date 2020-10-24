@@ -14,6 +14,7 @@ class ApiV1 {
     companion object {
         fun install(application: Application) {
             ApiV1Configuration.install(application)
+            ApiV1GlobalConfiguration.install(application)
             ApiV1Login.install(application)
             ApiV1Report.install(application)
         }
